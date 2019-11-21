@@ -22,6 +22,7 @@ const HeaderSize = 7
 // Tsdata defines a TSData file
 type Tsdata struct {
 	checkers        []func(string) bool
+	lastTime        time.Time
 	FileType        string
 	Project         string
 	FileDescription string
@@ -31,70 +32,93 @@ type Tsdata struct {
 	Headers         []string
 }
 
+// Data holds validated information for one TSDATA file line, with the original
+// column strings in Fields and time in Time.
+type Data struct {
+	Fields []string
+	Time   time.Time
+}
+
 // ValidateLine checks values in a data line and returns all fields as a slice of
-// strings. It returns an error for the first field that fails validation.
-func (d *Tsdata) ValidateLine(line string) (fields []string, err error) {
-	fields = strings.Split(line, Delim)
-	if len(fields) != len(d.Headers) {
-		return nil, fmt.Errorf("found %v columns, expected %v", len(fields), len(d.Headers))
+// strings. It returns an error for the first field that fails validation. It
+// also returns an error if the timestamp in this line is earlier than the
+// timestamp in the last line validated by this struct.
+func (t *Tsdata) ValidateLine(line string) (Data, error) {
+	fields := strings.Split(line, Delim)
+	if len(fields) < 2 {
+		// Need at least time column plus one data column
+		return Data{}, fmt.Errorf("found %v columns, expected >= 2", len(fields))
 	}
-	for i, f := range fields {
-		if !d.checkers[i](f) {
-			return nil, fmt.Errorf("column %v, bad value '%v'", i+1, f)
+	if len(fields) != len(t.Headers) {
+		return Data{}, fmt.Errorf("found %v columns, expected %v", len(fields), len(t.Headers))
+	}
+	// Validate first time column separately here to avoid parsing timestamp
+	// twice and to make sure not NA
+	tline, err := time.Parse(time.RFC3339, fields[0])
+	if err != nil {
+		return Data{}, fmt.Errorf("first time column, bad value '%v'", fields[0])
+	}
+	if tline.Sub(t.lastTime) < 0 {
+		return Data{}, fmt.Errorf("timestamp less than previous line, %v < %v", tline, t.lastTime)
+	}
+	for i := 1; i < len(fields); i++ { // skip first time column
+		if !t.checkers[i](fields[i]) {
+			return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
 		}
 	}
-	return fields, nil
+	t.lastTime = tline
+	return Data{Fields: fields, Time: tline}, nil
 }
 
 // ParseHeader parses and validates header metadata. Input should a string of
 // all lines in the file's header section.
-func (d *Tsdata) ParseHeader(header string) error {
+func (t *Tsdata) ParseHeader(header string) error {
 	header = strings.TrimSuffix(header, "\n")
 	headerLines := strings.Split(header, "\n")
 	if len(headerLines) != HeaderSize {
 		return fmt.Errorf("expected %v lines in header, found %v", HeaderSize, len(headerLines))
 	}
-	d.FileType = strings.Split(headerLines[0], Delim)[0]
-	d.Project = strings.Split(headerLines[1], Delim)[0]
-	d.FileDescription = strings.Split(headerLines[2], Delim)[0]
+	t.FileType = strings.Split(headerLines[0], Delim)[0]
+	t.Project = strings.Split(headerLines[1], Delim)[0]
+	t.FileDescription = strings.Split(headerLines[2], Delim)[0]
 	if headerLines[3] != "" {
-		d.Comments = strings.Split(headerLines[3], Delim)
+		t.Comments = strings.Split(headerLines[3], Delim)
 	}
 	if headerLines[4] != "" {
-		d.Types = strings.Split(headerLines[4], Delim)
+		t.Types = strings.Split(headerLines[4], Delim)
 	}
 	if headerLines[5] != "" {
-		d.Units = strings.Split(headerLines[5], Delim)
+		t.Units = strings.Split(headerLines[5], Delim)
 	}
 	if headerLines[6] != "" {
-		d.Headers = strings.Split(headerLines[6], Delim)
+		t.Headers = strings.Split(headerLines[6], Delim)
 	}
 
-	d.checkers = make([]func(string) bool, len(d.Types))
-	for i, t := range d.Types {
-		d.checkers[i] = typecheckers[t]
+	t.checkers = make([]func(string) bool, len(t.Types))
+	for i, ty := range t.Types {
+		t.checkers[i] = typecheckers[ty]
 	}
-	return d.ValidateMetadata()
+	return t.ValidateMetadata()
 }
 
 // ValidateMetadata checks for errors and inconsistencies in metadata values.
-func (d *Tsdata) ValidateMetadata() error {
+func (t *Tsdata) ValidateMetadata() error {
 	// FileType
-	if d.FileType == "" {
+	if t.FileType == "" {
 		return fmt.Errorf("missing or empty FileType")
 	}
 
 	// Project
-	if d.Project == "" {
+	if t.Project == "" {
 		return fmt.Errorf("missing or empty Project")
 	}
 
 	// Comments
 	colCount := 0
 	// Column comments may be a blank line so allow 0 columns
-	if len(d.Comments) > 0 {
-		colCount = len(d.Comments)
-		for i, com := range d.Comments {
+	if len(t.Comments) > 0 {
+		colCount = len(t.Comments)
+		for i, com := range t.Comments {
 			if com == "" {
 				return fmt.Errorf("empty comment in column %v", i+1)
 			}
@@ -102,73 +126,82 @@ func (d *Tsdata) ValidateMetadata() error {
 	}
 
 	// Types
-	if len(d.Types) == 0 {
+	if len(t.Types) == 0 {
 		return fmt.Errorf("missing or empty Types")
 	}
-	if colCount > 0 && len(d.Types) != colCount {
+	if colCount > 0 && len(t.Types) != colCount {
 		return fmt.Errorf("inconsistent Types column count")
 	}
-	for i, t := range d.Types {
+	for i, t := range t.Types {
 		_, ok := typecheckers[t]
 		if !ok {
 			return fmt.Errorf("bad Types value '%v' in column %v", t, i+1)
 		}
 	}
-	colCount = len(d.Types)
+	colCount = len(t.Types)
 
 	// Units
-	if len(d.Units) == 0 {
+	if len(t.Units) == 0 {
 		return fmt.Errorf("missing or empty Units")
 	}
-	if len(d.Units) != colCount {
+	if len(t.Units) != colCount {
 		return fmt.Errorf("inconsistent Units column count")
 	}
-	for i, u := range d.Units {
+	for i, u := range t.Units {
 		if u == "" {
 			return fmt.Errorf("empty Units value in column %v", i+1)
 		}
 	}
 
 	// Headers
-	if len(d.Headers) == 0 {
+	if len(t.Headers) == 0 {
 		return fmt.Errorf("missing or empty Headers")
 	}
-	if len(d.Headers) != colCount {
+	if len(t.Headers) != colCount {
 		return fmt.Errorf("inconsistent Headers column count")
 	}
-	if d.Headers[0] != "time" {
+	if t.Headers[0] != "time" {
 		return fmt.Errorf("first Headers column should be 'time'")
 	}
-	for i, h := range d.Headers {
+	for i, h := range t.Headers {
 		if h == "" {
 			return fmt.Errorf("empty Headers value in column %v", i+1)
 		}
+	}
+
+	// Finally column count should be > 1, meaning at least one data column
+	// after the first time column
+	if colCount < 2 {
+		return fmt.Errorf("no data columns after time")
 	}
 
 	return nil
 }
 
 // Header creates a TSData file metadata header paragraph.
-func (d *Tsdata) Header() string {
+func (t *Tsdata) Header() string {
 	// TODO: should this ever produce a non-conforming TSData header?
-	cols := len(d.Headers)
-	text := d.FileType + "\n"
-	text = text + d.Project + "\n"
-	text = text + d.FileDescription + "\n"
-	if len(d.Comments) == 0 {
+	cols := len(t.Headers)
+	text := t.FileType + "\n"
+	text = text + t.Project + "\n"
+	text = text + t.FileDescription + "\n"
+	if len(t.Comments) == 0 {
 		text = text + nas(cols) + "\n"
 	} else {
-		text = text + strings.Join(d.Comments, Delim) + "\n"
+		text = text + strings.Join(t.Comments, Delim) + "\n"
 	}
-	text = text + strings.Join(d.Types, Delim) + "\n"
-	text = text + strings.Join(d.Units, Delim) + "\n"
-	text = text + strings.Join(d.Headers, Delim) // note, doesn't end with blank line
+	text = text + strings.Join(t.Types, Delim) + "\n"
+	text = text + strings.Join(t.Units, Delim) + "\n"
+	text = text + strings.Join(t.Headers, Delim) // note, doesn't end with blank line
 	return text
 }
 
 func checkTime(s string) bool {
 	_, err := time.Parse(time.RFC3339, s)
-	return err == nil
+	if err != nil {
+		return s == NA
+	}
+	return true
 }
 
 func checkFloat(s string) bool {
@@ -191,6 +224,10 @@ func checkText(s string) bool {
 	return true
 }
 
+func checkCategory(s string) bool {
+	return s != ""
+}
+
 func checkBoolean(s string) bool {
 	return (s == "TRUE" || s == "FALSE" || s == NA)
 }
@@ -200,7 +237,7 @@ var typecheckers = map[string]func(string) bool{
 	"float":    checkFloat,
 	"integer":  checkInteger,
 	"text":     checkText,
-	"category": checkText,
+	"category": checkCategory,
 	"boolean":  checkBoolean,
 }
 

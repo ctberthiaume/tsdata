@@ -1,6 +1,9 @@
 package tsdata
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 type tsdataFields struct {
 	checkers        []func(string) bool
@@ -14,7 +17,6 @@ type tsdataFields struct {
 }
 
 func TestTsdata_ParseHeader(t *testing.T) {
-
 	type args struct {
 		header string
 	}
@@ -27,75 +29,85 @@ func TestTsdata_ParseHeader(t *testing.T) {
 		{
 			name: "correct header fully populated",
 			fields: tsdataFields{
-				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
+				checkers:        []func(string) bool{checkTime, checkFloat},
 				FileType:        "fileType",
 				Project:         "project",
-				FileDescription: "Some general comments about this file on a single line, not tab-delimited",
-				Comments:        []string{"ISO8601 timestamp", "column2 notes", "NA", "column4 notes", "column5 notes", "column6 notes"},
-				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
-				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
-				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
+				FileDescription: "file description",
+				Comments:        []string{"ISO8601 timestamp", "NA"},
+				Types:           []string{"time", "float"},
+				Units:           []string{"NA", "NA"},
+				Headers:         []string{"time", "col1"},
 			},
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes	column6 notes
-time	float	integer	text	category	boolean
-NA	m/s	km	NA	NA	NA
-time	speed	distance	notes	color	hasTail`,
+file description
+ISO8601 timestamp	NA
+time	float
+NA	NA
+time	col1`,
 			wantErr: false,
 		},
 		{
 			name: "correct header no FileDescription",
 			fields: tsdataFields{
-				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
+				checkers:        []func(string) bool{checkTime, checkFloat},
 				FileType:        "fileType",
 				Project:         "project",
 				FileDescription: "",
-				Comments:        []string{"ISO8601 timestamp", "column2 notes", "NA", "column4 notes", "column5 notes", "column6 notes"},
-				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
-				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
-				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
+				Comments:        []string{"ISO8601 timestamp", "NA"},
+				Types:           []string{"time", "float"},
+				Units:           []string{"NA", "NA"},
+				Headers:         []string{"time", "col1"},
 			},
 			header: `fileType
 project
 
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes	column6 notes
-time	float	integer	text	category	boolean
-NA	m/s	km	NA	NA	NA
-time	speed	distance	notes	color	hasTail`,
+ISO8601 timestamp	NA
+time	float
+NA	NA
+time	col1`,
 			wantErr: false,
 		},
 		{
 			name: "correct header no Comments",
 			fields: tsdataFields{
-				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
+				checkers:        []func(string) bool{checkTime, checkFloat},
 				FileType:        "fileType",
 				Project:         "project",
-				FileDescription: "Some general comments about this file on a single line, not tab-delimited",
+				FileDescription: "file description",
 				Comments:        []string{},
-				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
-				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
-				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
+				Types:           []string{"time", "float"},
+				Units:           []string{"NA", "NA"},
+				Headers:         []string{"time", "col1"},
 			},
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
+file description
 
-time	float	integer	text	category	boolean
-NA	m/s	km	NA	NA	NA
-time	speed	distance	notes	color	hasTail
-`,
+time	float
+NA	NA
+time	col1`,
 			wantErr: false,
+		},
+		{
+			name: "no data columns",
+			header: `project
+file description
+ISO8601 timestamp
+time
+NA
+time
+`,
+			wantErr: true,
 		},
 		{
 			name: "wrong line count",
 			header: `project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA
+time	float
+NA	NA
+time	col1
 `,
 			wantErr: true,
 		},
@@ -103,11 +115,11 @@ time	speed	distance	notes	color
 			name: "no FileType",
 			header: `
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA
+time	float
+NA	NA
+time	col1
 `,
 			wantErr: true,
 		},
@@ -115,11 +127,11 @@ time	speed	distance	notes	color
 			name: "no Project",
 			header: `fileType
 
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA
+time	float
+NA	NA
+time	col1
 `,
 			wantErr: true,
 		},
@@ -127,11 +139,23 @@ time	speed	distance	notes	color
 			name: "incomplete comments",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	
+time	float	integer
+NA	NA	NA
+time	col1	col2
+`,
+			wantErr: true,
+		},
+		{
+			name: "bad type",
+			header: `fileType
+project
+file description
+ISO8601 timestamp	NA	NA
+time	notfloat	integer
+NA	NA	NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -139,11 +163,11 @@ time	speed	distance	notes	color
 			name: "empty types column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	NA
+time		integer
+NA	NA	NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -151,11 +175,11 @@ time	speed	distance	notes	color
 			name: "empty units column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km		NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA		NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -163,11 +187,11 @@ time	speed	distance	notes	color
 			name: "empty headers column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed		notes	color
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA	NA	NA
+time		col2
 `,
 			wantErr: true,
 		},
@@ -175,11 +199,11 @@ time	speed		notes	color
 			name: "missing types column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	NA
+time	integer
+NA	NA	NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -187,11 +211,11 @@ time	speed	distance	notes	color
 			name: "missing units column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA
-time	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA	NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -199,11 +223,11 @@ time	speed	distance	notes	color
 			name: "missing headers column",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-time	speed	distance	notes
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA	NA	NA
+time	col1
 `,
 			wantErr: true,
 		},
@@ -211,11 +235,11 @@ time	speed	distance	notes
 			name: "empty types line",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
+file description
+ISO8601 timestamp	NA	NA
 
-NA	m/s	km	NA	NA
-time	speed	distance	notes	color
+NA	NA	NA
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -223,11 +247,11 @@ time	speed	distance	notes	color
 			name: "empty units line",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
 
-time	speed	distance	notes	color
+time	col1	col2
 `,
 			wantErr: true,
 		},
@@ -235,10 +259,10 @@ time	speed	distance	notes	color
 			name: "empty headers line",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA	NA	NA
 
 `,
 			wantErr: true,
@@ -247,11 +271,23 @@ NA	m/s	km	NA	NA
 			name: "first header column not time",
 			header: `fileType
 project
-Some general comments about this file on a single line, not tab-delimited
-ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes
-time	float	integer	text	category
-NA	m/s	km	NA	NA
-notTime	speed	distance	notes	color
+file description
+ISO8601 timestamp	NA	NA
+time	float	integer
+NA	NA	NA
+nottime	col1	col2
+`,
+			wantErr: true,
+		},
+		{
+			name: "no data columns",
+			header: `fileType
+project
+file description
+ISO8601 timestamp
+time
+NA
+time
 `,
 			wantErr: true,
 		},
@@ -259,10 +295,12 @@ notTime	speed	distance	notes	color
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &Tsdata{}
-			if err := d.ParseHeader(tt.header); (err != nil) != tt.wantErr {
-				t.Errorf("Tsdata.ParseHeader() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr {
+			err := d.ParseHeader(tt.header)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Tsdata.ParseHeader() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			} else {
 				if len(d.checkers) != len(tt.fields.checkers) {
 					t.Errorf("Tsdata.ParseHeader() len(checkers) = %v, expected %v", len(d.checkers), len(tt.fields.checkers))
 				}
@@ -293,125 +331,333 @@ notTime	speed	distance	notes	color
 }
 
 func TestTsdata_ValidateLine(t *testing.T) {
+	tline, _ := time.Parse(time.RFC3339, "2017-05-06T19:52:57.601Z")
+	floatFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkFloat},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "float"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	intFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkInteger},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "integer"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	textFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkText},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "text"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	categoryFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkCategory},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "category"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	boolFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkBoolean},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "boolean"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	timeFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkTime},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA"},
+		Types:           []string{"time", "time"},
+		Units:           []string{"NA", "NA"},
+		Headers:         []string{"time", "col1"},
+	}
+	multiFields := tsdataFields{
+		checkers:        []func(string) bool{checkTime, checkFloat, checkInteger},
+		FileType:        "fileType",
+		Project:         "project",
+		FileDescription: "file description",
+		Comments:        []string{"ISO8601 timestamp", "NA", "NA"},
+		Types:           []string{"time", "float", "integer"},
+		Units:           []string{"NA", "NA", "NA"},
+		Headers:         []string{"time", "col1", "col2"},
+	}
 	type args struct {
 		line string
 	}
 	tests := []struct {
-		name    string
-		fields  []string
-		args    args
-		wantErr bool
+		name       string
+		time       time.Time
+		dataFields []string
+		fields     tsdataFields
+		args       args
+		wantErr    bool
 	}{
 		{
-			name:   "correct line TRUE boolean",
-			fields: []string{"2017-05-06T19:52:57.601Z", "6.0", "100", "foo", "blue", "TRUE"},
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100	foo	blue	TRUE"},
+			name:       "correct line TRUE boolean",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "TRUE"},
+			fields:     boolFields,
+			args: args{"2017-05-06T19:52:57.601Z	TRUE"},
 			wantErr: false,
 		},
 		{
-			name:   "correct line FALSE boolean",
-			fields: []string{"2017-05-06T19:52:57.601Z", "6.0", "100", "foo", "blue", "FALSE"},
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100	foo	blue	FALSE"},
+			name:       "correct line FALSE boolean",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "FALSE"},
+			fields:     boolFields,
+			args: args{"2017-05-06T19:52:57.601Z	FALSE"},
 			wantErr: false,
 		},
 		{
-			name: "NA timestamp",
-			args: args{"NA	6.0	100	foo	blue	TRUE"},
-			wantErr: true,
-		},
-		{
-			name:   "NA boolean",
-			fields: []string{"2017-05-06T19:52:57.601Z", "6.0", "100", "foo", "blue", "NA"},
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100	foo	blue	NA"},
+			name:       "correct line float",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
+			fields:     floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	6.0"},
 			wantErr: false,
 		},
 		{
-			name:   "NA float",
-			fields: []string{"2017-05-06T19:52:57.601Z", "NA", "100", "foo", "blue", "TRUE"},
-			args: args{"2017-05-06T19:52:57.601Z	NA	100	foo	blue	TRUE"},
+			name:       "correct line integer",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "100"},
+			fields:     intFields,
+			args: args{"2017-05-06T19:52:57.601Z	100"},
 			wantErr: false,
 		},
 		{
-			name:   "NA integer",
-			fields: []string{"2017-05-06T19:52:57.601Z", "6.0", "NA", "foo", "blue", "TRUE"},
-			args: args{"2017-05-06T19:52:57.601Z	6.0	NA	foo	blue	TRUE"},
+			name:       "correct line time",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "2017-05-07T00:00:00.000Z"},
+			fields:     timeFields,
+			args: args{"2017-05-06T19:52:57.601Z	2017-05-07T00:00:00.000Z"},
 			wantErr: false,
 		},
 		{
-			name: "empty timestamp",
-			args: args{"	6.0	100	foo	blue	TRUE"},
+			name:       "correct line text",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "foo"},
+			fields:     textFields,
+			args: args{"2017-05-06T19:52:57.601Z	foo"},
+			wantErr: false,
+		},
+		{
+			name:       "correct line category",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "foo"},
+			fields:     categoryFields,
+			args: args{"2017-05-06T19:52:57.601Z	foo"},
+			wantErr: false,
+		},
+		{
+			name:       "empty text",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", ""},
+			fields:     textFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
+			wantErr: false,
+		},
+		{
+			name:   "empty category",
+			fields: categoryFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
 			wantErr: true,
 		},
 		{
-			name: "empty boolean",
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100	foo	blue	"},
+			name:   "NA first timestamp",
+			fields: floatFields,
+			args: args{"NA	6.0"},
 			wantErr: true,
 		},
 		{
-			name: "empty float",
-			args: args{"2017-05-06T19:52:57.601Z		100	foo	blue	TRUE"},
+			name:       "NA timestamp",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
+			fields:     timeFields,
+			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			wantErr: false,
+		},
+		{
+			name:       "NA boolean",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
+			fields:     boolFields,
+			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			wantErr: false,
+		},
+		{
+			name:       "NA float",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
+			fields:     floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			wantErr: false,
+		},
+		{
+			name:       "NA integer",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
+			fields:     intFields,
+			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			wantErr: false,
+		},
+		{
+			name:   "empty first timestamp",
+			fields: floatFields,
+			args: args{"	6.0"},
 			wantErr: true,
 		},
 		{
-			name: "empty integer",
-			args: args{"2017-05-06T19:52:57.601Z	6.0		foo	blue	TRUE"},
+			name:   "empty timestamp",
+			fields: timeFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
 			wantErr: true,
 		},
 		{
-			name: "bad timestamp",
-			args: args{"2017-05-06aT19:52:57.601Z	6.0	100	foo	blue	TRUE"},
+			name:   "empty boolean",
+			fields: boolFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
 			wantErr: true,
 		},
 		{
-			name: "bad boolean",
-			args: args{"2017-05-06aT19:52:57.601Z	6.0	100	foo	blue	TaRUE"},
+			name:   "empty float",
+			fields: floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
 			wantErr: true,
 		},
 		{
-			name: "bad float",
-			args: args{"2017-05-06T19:52:57.601Z	6a.0	100	foo	blue	TRUE"},
+			name:   "empty integer",
+			fields: intFields,
+			args: args{"2017-05-06T19:52:57.601Z	"},
 			wantErr: true,
 		},
 		{
-			name: "bad integer",
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100.3	foo	blue	TRUE"},
+			name:   "bad first timestamp",
+			fields: floatFields,
+			args: args{"2017-05-06aT19:52:57.601Z	6.0"},
+			wantErr: true,
+		},
+		{
+			name:   "bad timestamp",
+			fields: timeFields,
+			args: args{"2017-05-06T19:52:57.601Z	201a7-05-07T00:00:00.000Z"},
+			wantErr: true,
+		},
+		{
+			name:   "bad boolean",
+			fields: boolFields,
+			args: args{"2017-05-06aT19:52:57.601Z	TaRUE"},
+			wantErr: true,
+		},
+		{
+			name:   "bad float",
+			fields: floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	6a.0"},
+			wantErr: true,
+		},
+		{
+			name:   "bad integer",
+			fields: intFields,
+			args: args{"2017-05-06T19:52:57.601Z	100.3"},
 			wantErr: true,
 		},
 		{
 			name:    "empty line",
+			fields:  floatFields,
 			args:    args{""},
 			wantErr: true,
 		},
 		{
-			name: "missing column",
-			args: args{"2017-05-06T19:52:57.601Z	6.0	100	foo"},
+			name:    "no data column",
+			fields:  multiFields,
+			args:    args{"2017-05-06T19:52:57.601Z"},
+			wantErr: true,
+		},
+		{
+			name:   "missing data column",
+			fields: multiFields,
+			args: args{"2017-05-06T19:52:57.601Z	100.3"},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &Tsdata{
-				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
-				FileType:        "fileType",
-				Project:         "project",
-				FileDescription: "Some general comments about this file on a single line, not tab-delimited",
-				Comments:        []string{"ISO8601 timestamp", "column2 notes", "NA", "column4 notes", "column5 notes", "column6 notes"},
-				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
-				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
-				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
+				checkers:        tt.fields.checkers,
+				FileType:        tt.fields.FileType,
+				Project:         tt.fields.Project,
+				FileDescription: tt.fields.FileDescription,
+				Comments:        tt.fields.Comments,
+				Types:           tt.fields.Types,
+				Units:           tt.fields.Units,
+				Headers:         tt.fields.Headers,
 			}
-			fields, err := d.ValidateLine(tt.args.line)
+			data, err := d.ValidateLine(tt.args.line)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("Tsdata.ValidateLine() err %v, expected a non-nil error", err)
 				}
 			} else {
-				if !stringSliceEqual(fields, tt.fields) {
-					t.Errorf("Tsdata.ValidateLine() fields %v, expected %v", fields, tt.fields)
+				if err != nil {
+					t.Errorf("Tsdata.ValidateLine() err %v, expected nil", err)
+				}
+				if !tline.Equal(data.Time) {
+					t.Errorf("Tsdata.ValidateLine() Data.Time %v, expected %v", data.Time, tline)
+				}
+				if !stringSliceEqual(data.Fields, tt.dataFields) {
+					t.Errorf("Tsdata.ValidateLine() fields %v, expected %v", data.Fields, tt.dataFields)
 				}
 			}
 		})
 	}
+}
+
+func TestTsdata_ValidateLine_order(t *testing.T) {
+	t.Run("validate line order", func(t *testing.T) {
+		d := &Tsdata{
+			checkers:        []func(string) bool{checkTime, checkFloat},
+			FileType:        "fileType",
+			Project:         "project",
+			FileDescription: "",
+			Comments:        []string{"ISO8601 timestamp", "column2 notes"},
+			Types:           []string{"time", "float"},
+			Units:           []string{"NA", "m/s"},
+			Headers:         []string{"time", "speed"},
+		}
+		line0 := "2017-05-06T19:00:00.000Z	6.0"
+		line1 := "2017-05-06T19:52:57.601Z	6.0"
+		line2 := "2017-05-06T00:00:00.000Z	6.0"
+
+		_, _ = d.ValidateLine(line0)
+		_, err := d.ValidateLine(line1)
+		if err != nil {
+			t.Errorf("Tsdata.ValidateLine() expected nil error for in-order lines, saw %v", err)
+		}
+		_, err = d.ValidateLine(line2)
+		if err == nil {
+			t.Errorf("Tsdata.ValidateLine() expected error with out-of-order lines")
+		}
+	})
 }
 
 func TestTsdata_Header(t *testing.T) {
@@ -429,13 +675,13 @@ func TestTsdata_Header(t *testing.T) {
 				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
 				FileType:        "fileType",
 				Project:         "project",
-				FileDescription: "Some general comments about this file on a single line, not tab-delimited",
+				FileDescription: "file description",
 				Comments:        []string{"ISO8601 timestamp", "column2 notes", "NA", "column4 notes", "column5 notes", "column6 notes"},
 				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
 				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
 				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
 			},
-			header: "fileType\nproject\nSome general comments about this file on a single line, not tab-delimited\nISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes	column6 notes\ntime	float	integer	text	category	boolean\nNA	m/s	km	NA	NA	NA\ntime	speed	distance	notes	color	hasTail",
+			header: "fileType\nproject\nfile description\nISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes	column6 notes\ntime	float	integer	text	category	boolean\nNA	m/s	km	NA	NA	NA\ntime	speed	distance	notes	color	hasTail",
 		},
 		{
 			name: "header with no column comments",
@@ -443,13 +689,13 @@ func TestTsdata_Header(t *testing.T) {
 				checkers:        []func(string) bool{checkTime, checkFloat, checkInteger, checkText, checkText, checkBoolean},
 				FileType:        "fileType",
 				Project:         "project",
-				FileDescription: "Some general comments about this file on a single line, not tab-delimited",
+				FileDescription: "file description",
 				Comments:        []string{},
 				Types:           []string{"time", "float", "integer", "text", "category", "boolean"},
 				Units:           []string{"NA", "m/s", "km", "NA", "NA", "NA"},
 				Headers:         []string{"time", "speed", "distance", "notes", "color", "hasTail"},
 			},
-			header: "fileType\nproject\nSome general comments about this file on a single line, not tab-delimited\nNA	NA	NA	NA	NA	NA\ntime	float	integer	text	category	boolean\nNA	m/s	km	NA	NA	NA\ntime	speed	distance	notes	color	hasTail",
+			header: "fileType\nproject\nfile description\nNA	NA	NA	NA	NA	NA\ntime	float	integer	text	category	boolean\nNA	m/s	km	NA	NA	NA\ntime	speed	distance	notes	color	hasTail",
 		},
 	}
 	for _, tt := range tests {

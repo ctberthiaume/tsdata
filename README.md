@@ -6,19 +6,72 @@ See [https://github.com/armbrustlab/tsdataformat](https://github.com/armbrustlab
 
 ## Installation
 
-To install the command-line tool of the same name
+To install the command-line tool,
+from within a cloned repo directory run `go install ./...`.
+This will install a new binary called tsdata in `$GOPATH/bin`.
 
-```sh
-env GO111MODULE=on go get github.com/ctberthiaume/tsdata/cmd/tsdata
+## CLI
+
+```
+$ tsdata -help
+NAME:
+   tsdata - A new cli application
+
+USAGE:
+   tsdata [global options] command [command options] [arguments...]
+
+VERSION:
+   0.2.0
+
+COMMANDS:
+   validate  validates a TSDATA file
+   csv       converts a TSDATA file to CSV
+   help, h   Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --help, -h     show help
+   --version, -v  print the version
 ```
 
-As of Go version 1.13 the default value for `GO111MODULE` is `auto`,
-which may cause dependency compatiblity problems.
-Prepending with `env GO111MODULE=on` ensures the tool builds with the correct dependency versions.
-This may be unnecessary in future versions of Go.
-See [https://golang.org/cmd/go/#hdr-Module_support](https://golang.org/cmd/go/#hdr-Module_support).
+```
+$ tsdata validate -help
+NAME:
+   tsdata validate - validates a TSDATA file
+
+USAGE:
+   tsdata validate INFILE
+
+DESCRIPTION:
+   Validates metadata and data in INFILE. Prints errors encountered to STDERR.
+
+OPTIONS:
+   --stringent, -s  Exit after the first data line validation error
+   --quiet, -q      Suppress logging output
+```
+
+```
+$ tsdata csv -help
+NAME:
+   tsdata csv - converts a TSDATA file to CSV
+
+USAGE:
+   tsdata csv INFILE OUTFILE
+
+DESCRIPTION:
+   Validates and converts a TSDATA file at INFILE to a CSV file at OUTFILE.
+
+OPTIONS:
+   --quiet, -q  Suppress logging output
+```
+
+The csv subcommand will report data line errors,
+but otherwise will ignore those lines when writing output.
 
 ## Library
+
+```golang
+import "github.com/ctberthiaume/tsdata"
+```
 
 To define the metadata for a TSDATA file, either construct a `Tsdata` struct directly, e.g.
 
@@ -56,9 +109,10 @@ Once a `Tsdata` struct has been created with validated header metadata,
 data lines can be validated with `ValidateLine`.
 
 ```golang
-fields, err := t.ValidateLine(line)
+data, err := t.ValidateLine(line)
 if err != nil {
     log.Fatalf("%v\n", err)
 }
-// fields will be a []string of columns present in the line
+// data.Fields will be a []string of columns present in the line
+// data.Time will be the parsed timestamp for this line
 ```

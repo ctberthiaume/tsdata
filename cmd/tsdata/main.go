@@ -14,7 +14,7 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "0.1.1"
+var version string = "0.2.0"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
@@ -175,12 +175,12 @@ func csv(infile string, outfile string) error {
 	i := tsdata.HeaderSize
 	for scanner.Scan() {
 		i++
-		fields, err := ts.ValidateLine(scanner.Text())
+		data, err := ts.ValidateLine(scanner.Text())
 		if err != nil {
 			logger.Println(err)
 			continue
 		}
-		_, err = w.WriteString(strings.Join(fields, ",") + "\n")
+		_, err = w.WriteString(strings.Join(data.Fields, ",") + "\n")
 		if err != nil {
 			return err
 		}
