@@ -14,7 +14,7 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "1.0.0"
+var version string = "0.1.1"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
