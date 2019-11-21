@@ -10,6 +10,8 @@ To install the command-line tool,
 from within a cloned repo directory run `go install ./...`.
 This will install a new binary called tsdata in `$GOPATH/bin`.
 
+Alternatively, download prebuilt binaries at [https://github.com/ctberthiaume/tsdata/releases](https://github.com/ctberthiaume/tsdata/releases).
+
 ## CLI
 
 ```
