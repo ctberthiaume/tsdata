@@ -58,9 +58,10 @@ func (t *Tsdata) ValidateLine(line string) (Data, error) {
 	if err != nil {
 		return Data{}, fmt.Errorf("first time column, bad value '%v'", fields[0])
 	}
-	if tline.Sub(t.lastTime) < 0 {
-		return Data{}, fmt.Errorf("timestamp less than previous line, %v < %v", tline, t.lastTime)
-	}
+	// Turn off time order check for now, it's sometimes too stringent.
+	//if tline.Sub(t.lastTime) < 0 {
+	//	return Data{}, fmt.Errorf("timestamp less than previous line, %v < %v", tline, t.lastTime)
+	//}
 	for i := 1; i < len(fields); i++ { // skip first time column
 		if !t.checkers[i](fields[i]) {
 			return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])

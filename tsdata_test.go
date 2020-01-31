@@ -632,6 +632,9 @@ func TestTsdata_ValidateLine(t *testing.T) {
 	}
 }
 
+// This test has been changed so that it confirms that both in-order and
+// out-of-order lines don't generate errors. In the future line order validation
+// may be reinstated so this test and accompanying code will not be deleted yet.
 func TestTsdata_ValidateLine_order(t *testing.T) {
 	t.Run("validate line order", func(t *testing.T) {
 		d := &Tsdata{
@@ -654,8 +657,8 @@ func TestTsdata_ValidateLine_order(t *testing.T) {
 			t.Errorf("Tsdata.ValidateLine() expected nil error for in-order lines, saw %v", err)
 		}
 		_, err = d.ValidateLine(line2)
-		if err == nil {
-			t.Errorf("Tsdata.ValidateLine() expected error with out-of-order lines")
+		if err != nil {
+			t.Errorf("Tsdata.ValidateLine() expected nil error for out-of-order lines")
 		}
 	})
 }
