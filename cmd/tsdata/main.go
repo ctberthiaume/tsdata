@@ -14,7 +14,7 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "0.2.1"
+var version string = "v0.2.2"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
@@ -26,7 +26,7 @@ func main() {
 			Name:        "validate",
 			Usage:       "validates a TSDATA file",
 			UsageText:   "tsdata validate INFILE",
-			Description: "Validates metadata and data in INFILE. Prints errors encountered to STDERR.",
+			Description: "Validates metadata and data in INFILE. Prints errors encountered to STDERR. Use '-' for STDIN.",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "stringent, s",
@@ -62,7 +62,7 @@ func main() {
 			Name:        "csv",
 			Usage:       "converts a TSDATA file to CSV",
 			UsageText:   "tsdata csv INFILE OUTFILE",
-			Description: "Validates and converts a TSDATA file at INFILE to a CSV file at OUTFILE.",
+			Description: "Validates and converts a TSDATA file at INFILE to a CSV file at OUTFILE. Use '-' for STDIN and STDOUT.",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:  "quiet, q",
@@ -99,11 +99,17 @@ func main() {
 }
 
 func validate(infile string, stringent bool) error {
-	r, err := os.Open(infile)
-	if err != nil {
-		return err
+	var r *os.File
+	var err error
+	if infile == "-" {
+		r = os.Stdin
+	} else {
+		r, err = os.Open(infile)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
 	}
-	defer r.Close()
 
 	ts := tsdata.Tsdata{}
 	scanner := bufio.NewScanner(r)
@@ -141,11 +147,17 @@ func validate(infile string, stringent bool) error {
 }
 
 func csv(infile string, outfile string) error {
-	r, err := os.Open(infile)
-	if err != nil {
-		return err
+	var r *os.File
+	var err error
+	if infile == "-" {
+		r = os.Stdin
+	} else {
+		r, err = os.Open(infile)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
 	}
-	defer r.Close()
 
 	ts := tsdata.Tsdata{}
 	scanner := bufio.NewScanner(r)
@@ -158,12 +170,17 @@ func csv(infile string, outfile string) error {
 		return err
 	}
 
-	outf, err := os.Create(outfile)
+	var outf *os.File
+	if outfile == "-" {
+		outf = os.Stdout
+	} else {
+		outf, err = os.Create(outfile)
+		if err != nil {
+			return err
+		}
+	}
 	buffSize := 1 << 16 // 65536 byte buffer
 	w := bufio.NewWriterSize(outf, buffSize)
-	if err != nil {
-		return err
-	}
 
 	// Write CSV column headers
 	_, err = w.WriteString(strings.Join(ts.Headers, ",") + "\n")
@@ -191,9 +208,11 @@ func csv(infile string, outfile string) error {
 	}
 
 	w.Flush()
-	err = outf.Close()
-	if err != nil {
-		return err
+	if outfile == "-" {
+		err = outf.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
