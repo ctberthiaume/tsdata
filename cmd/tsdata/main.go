@@ -15,17 +15,18 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "v0.2.3"
+var version string = "v0.2.4"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
 	app := cli.NewApp()
 	app.Name = cmdname
+	app.Usage = "process time-series TSDATA files (https://github.com/armbrustlab/tsdataformat)"
 	app.Version = version
 	app.Commands = []cli.Command{
-		cli.Command{
+		{
 			Name:        "validate",
-			Usage:       "validates a TSDATA file",
+			Usage:       "Validates a TSDATA file",
 			UsageText:   "tsdata validate INFILE",
 			Description: "Validates metadata and data in INFILE. Prints errors encountered to STDERR. Use '-' for STDIN.",
 			Flags: []cli.Flag{
@@ -59,9 +60,9 @@ func main() {
 				return err
 			},
 		},
-		cli.Command{
+		{
 			Name:        "csv",
-			Usage:       "converts a TSDATA file to CSV",
+			Usage:       "Converts a TSDATA file to CSV",
 			UsageText:   "tsdata csv INFILE OUTFILE",
 			Description: "Validates and converts a TSDATA file at INFILE to a CSV file at OUTFILE. Use '-' for STDIN and STDOUT.",
 			Flags: []cli.Flag{
