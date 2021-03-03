@@ -5,6 +5,6 @@ ISO8601 timestamp	column2 notes	NA	column4 notes	column5 notes	column6 notes
 time	float	integer	text	category	boolean
 NA	m/s	km	NA	NA	NA
 time	speed	distance	notes	color	hasTail
-2017-05-06T19:52:57.601Z	6.0	100	foo	blue	NA
+2017-05-06T19:52:57.601Z	6.0	100	fo"o",doo	blue	NA
 2017-05-06T20:52:57.601Z	10	200	bar	red	TRUE
 2017-05-06T21:52:57.601Z	NA	NA	NA	green	FALSE
