@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,7 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "v0.2.2"
+var version string = "v0.2.3"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
@@ -51,7 +52,7 @@ func main() {
 				if c.Bool("quiet") {
 					logger.SetOutput(ioutil.Discard)
 				}
-				err := validate(c.Args().Get(0), c.Bool("stringent"))
+				err := validateCmd(c.Args().Get(0), c.Bool("stringent"))
 				if err != nil {
 					logger.Println(err)
 				}
@@ -83,7 +84,7 @@ func main() {
 				if c.Bool("quiet") {
 					logger.SetOutput(ioutil.Discard)
 				}
-				err := csv(c.Args().Get(0), c.Args().Get(1))
+				err := csvCmd(c.Args().Get(0), c.Args().Get(1))
 				if err != nil {
 					logger.Println(err)
 				}
@@ -98,7 +99,7 @@ func main() {
 	}
 }
 
-func validate(infile string, stringent bool) error {
+func validateCmd(infile string, stringent bool) error {
 	var r *os.File
 	var err error
 	if infile == "-" {
@@ -146,7 +147,7 @@ func validate(infile string, stringent bool) error {
 	return nil
 }
 
-func csv(infile string, outfile string) error {
+func csvCmd(infile string, outfile string) error {
 	var r *os.File
 	var err error
 	if infile == "-" {
@@ -179,11 +180,10 @@ func csv(infile string, outfile string) error {
 			return err
 		}
 	}
-	buffSize := 1 << 16 // 65536 byte buffer
-	w := bufio.NewWriterSize(outf, buffSize)
+	w := csv.NewWriter(outf)
 
 	// Write CSV column headers
-	_, err = w.WriteString(strings.Join(ts.Headers, ",") + "\n")
+	err = w.Write(ts.Headers)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func csv(infile string, outfile string) error {
 			logger.Println(err)
 			continue
 		}
-		_, err = w.WriteString(strings.Join(data.Fields, ",") + "\n")
+		err = w.Write(data.Fields)
 		if err != nil {
 			return err
 		}
@@ -208,6 +208,10 @@ func csv(infile string, outfile string) error {
 	}
 
 	w.Flush()
+	err = w.Error()
+	if err != nil {
+		return err
+	}
 	if outfile == "-" {
 		err = outf.Close()
 		if err != nil {
