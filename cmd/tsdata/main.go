@@ -15,7 +15,7 @@ import (
 
 var logger *log.Logger
 var cmdname string = "tsdata"
-var version string = "v0.2.5"
+var version string = "v0.3.0"
 
 func main() {
 	logger = log.New(os.Stderr, "", 0)
@@ -92,6 +92,38 @@ func main() {
 				return err
 			},
 		},
+		{
+			Name:        "clean",
+			Usage:       "Clean a TSDATA file",
+			UsageText:   "tsdata clean INFILE OUTFILE",
+			Description: "Fix common errors in a TSDATA file at INFILE, write to OUTFILE. Use '-' for STDIN and STDOUT.",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "quiet, q",
+					Usage: "Suppress logging output",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				if c.NArg() == 0 {
+					err := fmt.Errorf("missing required INFILE and OUTIFLE arguments")
+					logger.Println(err)
+					return err
+				}
+				if c.NArg() < 2 {
+					err := fmt.Errorf("missing required OUTFILE argument")
+					logger.Println(err)
+					return err
+				}
+				if c.Bool("quiet") {
+					logger.SetOutput(ioutil.Discard)
+				}
+				err := cleanCmd(c.Args().Get(0), c.Args().Get(1))
+				if err != nil {
+					logger.Println(err)
+				}
+				return err
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
@@ -128,7 +160,7 @@ func validateCmd(infile string, stringent bool) error {
 	i := tsdata.HeaderSize
 	for scanner.Scan() {
 		i++
-		_, err := ts.ValidateLine(scanner.Text())
+		_, err := ts.ValidateLine(scanner.Text(), true)
 		if err != nil {
 			sawError = true
 			logger.Printf("line %v, %v\n", i, err)
@@ -193,9 +225,9 @@ func csvCmd(infile string, outfile string) error {
 	i := tsdata.HeaderSize
 	for scanner.Scan() {
 		i++
-		data, err := ts.ValidateLine(scanner.Text())
+		data, err := ts.ValidateLine(scanner.Text(), false)
 		if err != nil {
-			logger.Println(err)
+			logger.Printf("line %v, %v\n", i, err)
 			continue
 		}
 		err = w.Write(data.Fields)
@@ -210,6 +242,80 @@ func csvCmd(infile string, outfile string) error {
 
 	w.Flush()
 	err = w.Error()
+	if err != nil {
+		return err
+	}
+	if outfile == "-" {
+		err = outf.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func cleanCmd(infile string, outfile string) error {
+	var r *os.File
+	var err error
+	if infile == "-" {
+		r = os.Stdin
+	} else {
+		r, err = os.Open(infile)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+	}
+
+	ts := tsdata.Tsdata{}
+	scanner := bufio.NewScanner(r)
+	header, err := readHeader(scanner)
+	if err != nil {
+		return err
+	}
+	err = ts.ParseHeader(header)
+	if err != nil {
+		return err
+	}
+
+	var outf *os.File
+	if outfile == "-" {
+		outf = os.Stdout
+	} else {
+		outf, err = os.Create(outfile)
+		if err != nil {
+			return err
+		}
+	}
+	w := bufio.NewWriter(outf)
+
+	// Write header section
+	_, err = w.WriteString(ts.Header() + "\n")
+	if err != nil {
+		return err
+	}
+
+	// Write TSDATA lines
+	i := tsdata.HeaderSize
+	for scanner.Scan() {
+		i++
+		data, err := ts.ValidateLine(scanner.Text(), false)
+		if err != nil {
+			logger.Printf("line %v, %v\n", i, err)
+			continue
+		}
+		_, err = w.WriteString(strings.Join(data.Fields, tsdata.Delim) + "\n")
+		if err != nil {
+			return err
+		}
+	}
+	err = scanner.Err()
+	if err != nil {
+		return err
+	}
+
+	err = w.Flush()
 	if err != nil {
 		return err
 	}

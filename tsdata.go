@@ -43,15 +43,16 @@ type Data struct {
 // strings. It returns an error for the first field that fails validation. It
 // also returns an error if the timestamp in this line is earlier than the
 // timestamp in the last line validated by this struct.
-func (t *Tsdata) ValidateLine(line string) (Data, error) {
+func (t *Tsdata) ValidateLine(line string, strict bool) (Data, error) {
 	fields := strings.Split(line, Delim)
 	if len(fields) < 2 {
 		// Need at least time column plus one data column
 		return Data{}, fmt.Errorf("found %v columns, expected >= 2", len(fields))
 	}
-	if len(fields) != len(t.Headers) {
+	if len(fields) < len(t.Headers) {
 		return Data{}, fmt.Errorf("found %v columns, expected %v", len(fields), len(t.Headers))
 	}
+	fields = fields[:len(t.Headers)] // remove any extra fields
 	// Validate first time column separately here to avoid parsing timestamp
 	// twice and to make sure not NA
 	fields[0] = strings.TrimSpace(fields[0]) // remove leading/trailing whitespace
@@ -67,7 +68,10 @@ func (t *Tsdata) ValidateLine(line string) (Data, error) {
 		// Remove leading/trailing whitespace from each data field
 		fields[i] = strings.TrimSpace(fields[i])
 		if !t.checkers[i](fields[i]) {
-			return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
+			if strict {
+				return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
+			}
+			fields[i] = NA
 		}
 	}
 	t.lastTime = tline

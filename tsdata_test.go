@@ -17,9 +17,6 @@ type tsdataFields struct {
 }
 
 func TestTsdata_ParseHeader(t *testing.T) {
-	type args struct {
-		header string
-	}
 	tests := []struct {
 		name    string
 		fields  tsdataFields
@@ -423,15 +420,13 @@ func TestTsdata_ValidateLine(t *testing.T) {
 		Units:           []string{"NA", "NA", "NA"},
 		Headers:         []string{"time", "col1", "col2"},
 	}
-	type args struct {
-		line string
-	}
 	tests := []struct {
 		name       string
 		time       time.Time
 		dataFields []string
 		fields     tsdataFields
-		args       args
+		line       string
+		notStrict  bool
 		wantErr    bool
 	}{
 		{
@@ -439,7 +434,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "TRUE"},
 			fields:     boolFields,
-			args: args{"2017-05-06T19:52:57.601Z	TRUE"},
+			line: "2017-05-06T19:52:57.601Z	TRUE",
 			wantErr: false,
 		},
 		{
@@ -447,7 +442,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "FALSE"},
 			fields:     boolFields,
-			args: args{"2017-05-06T19:52:57.601Z	FALSE"},
+			line: "2017-05-06T19:52:57.601Z	FALSE",
 			wantErr: false,
 		},
 		{
@@ -455,7 +450,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
 			fields:     floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	6.0"},
+			line: "2017-05-06T19:52:57.601Z	6.0",
 			wantErr: false,
 		},
 		{
@@ -463,7 +458,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "100"},
 			fields:     intFields,
-			args: args{"2017-05-06T19:52:57.601Z	100"},
+			line: "2017-05-06T19:52:57.601Z	100",
 			wantErr: false,
 		},
 		{
@@ -471,7 +466,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "2017-05-07T00:00:00.000Z"},
 			fields:     timeFields,
-			args: args{"2017-05-06T19:52:57.601Z	2017-05-07T00:00:00.000Z"},
+			line: "2017-05-06T19:52:57.601Z	2017-05-07T00:00:00.000Z",
 			wantErr: false,
 		},
 		{
@@ -479,7 +474,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "foo"},
 			fields:     textFields,
-			args: args{"2017-05-06T19:52:57.601Z	foo"},
+			line: "2017-05-06T19:52:57.601Z	foo",
 			wantErr: false,
 		},
 		{
@@ -487,7 +482,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "foo"},
 			fields:     categoryFields,
-			args: args{"2017-05-06T19:52:57.601Z	foo"},
+			line: "2017-05-06T19:52:57.601Z	foo",
 			wantErr: false,
 		},
 		{
@@ -495,19 +490,19 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", ""},
 			fields:     textFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: false,
 		},
 		{
 			name:   "empty category",
 			fields: categoryFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: true,
 		},
 		{
 			name:   "NA first timestamp",
 			fields: floatFields,
-			args: args{"NA	6.0"},
+			line: "NA	6.0",
 			wantErr: true,
 		},
 		{
@@ -515,7 +510,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
 			fields:     timeFields,
-			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			line: "2017-05-06T19:52:57.601Z	NA",
 			wantErr: false,
 		},
 		{
@@ -523,7 +518,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
 			fields:     boolFields,
-			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			line: "2017-05-06T19:52:57.601Z	NA",
 			wantErr: false,
 		},
 		{
@@ -531,7 +526,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
 			fields:     floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			line: "2017-05-06T19:52:57.601Z	NA",
 			wantErr: false,
 		},
 		{
@@ -539,7 +534,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
 			fields:     intFields,
-			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			line: "2017-05-06T19:52:57.601Z	NA",
 			wantErr: false,
 		},
 		{
@@ -547,7 +542,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
 			fields:     floatFields,
-			args: args{"  2017-05-06T19:52:57.601Z	6.0"},
+			line: "  2017-05-06T19:52:57.601Z	6.0",
 			wantErr: false,
 		},
 		{
@@ -555,7 +550,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
 			fields:     floatFields,
-			args: args{"2017-05-06T19:52:57.601Z    	6.0"},
+			line: "2017-05-06T19:52:57.601Z    	6.0",
 			wantErr: false,
 		},
 		{
@@ -563,7 +558,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
 			fields:     floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	  6.0"},
+			line: "2017-05-06T19:52:57.601Z	  6.0",
 			wantErr: false,
 		},
 		{
@@ -571,86 +566,101 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			time:       tline,
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
 			fields:     floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	6.0  \r"},
+			line: "2017-05-06T19:52:57.601Z	6.0  \r",
 			wantErr: false,
 		},
 		{
 			name:   "empty first timestamp",
 			fields: floatFields,
-			args: args{"	6.0"},
+			line: "	6.0",
 			wantErr: true,
 		},
 		{
 			name:   "empty timestamp",
 			fields: timeFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: true,
 		},
 		{
 			name:   "empty boolean",
 			fields: boolFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: true,
 		},
 		{
 			name:   "empty float",
 			fields: floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: true,
 		},
 		{
 			name:   "empty integer",
 			fields: intFields,
-			args: args{"2017-05-06T19:52:57.601Z	"},
+			line: "2017-05-06T19:52:57.601Z	",
 			wantErr: true,
 		},
 		{
 			name:   "bad first timestamp",
 			fields: floatFields,
-			args: args{"2017-05-06aT19:52:57.601Z	6.0"},
+			line: "2017-05-06aT19:52:57.601Z	6.0",
 			wantErr: true,
 		},
 		{
 			name:   "bad timestamp",
 			fields: timeFields,
-			args: args{"2017-05-06T19:52:57.601Z	201a7-05-07T00:00:00.000Z"},
+			line: "2017-05-06T19:52:57.601Z	201a7-05-07T00:00:00.000Z",
 			wantErr: true,
 		},
 		{
 			name:   "bad boolean",
 			fields: boolFields,
-			args: args{"2017-05-06aT19:52:57.601Z	TaRUE"},
+			line: "2017-05-06aT19:52:57.601Z	TaRUE",
 			wantErr: true,
 		},
 		{
 			name:   "bad float",
 			fields: floatFields,
-			args: args{"2017-05-06T19:52:57.601Z	6a.0"},
+			line: "2017-05-06T19:52:57.601Z	6a.0",
 			wantErr: true,
 		},
 		{
 			name:   "bad integer",
 			fields: intFields,
-			args: args{"2017-05-06T19:52:57.601Z	100.3"},
+			line: "2017-05-06T19:52:57.601Z	100.3",
 			wantErr: true,
 		},
 		{
 			name:    "empty line",
 			fields:  floatFields,
-			args:    args{""},
+			line:    "",
 			wantErr: true,
 		},
 		{
 			name:    "no data column",
 			fields:  multiFields,
-			args:    args{"2017-05-06T19:52:57.601Z"},
+			line:    "2017-05-06T19:52:57.601Z",
 			wantErr: true,
 		},
 		{
 			name:   "missing data column",
 			fields: multiFields,
-			args: args{"2017-05-06T19:52:57.601Z	100.3"},
+			line: "2017-05-06T19:52:57.601Z	100.3",
 			wantErr: true,
+		},
+		{
+			name:   "bad first timestamp, not strict",
+			fields: floatFields,
+			line: "2017-05-06aT19:52:57.601Z	6.0",
+			wantErr:   true,
+			notStrict: true,
+		},
+		{
+			name:       "bad float, not strict",
+			fields:     floatFields,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
+			line: "2017-05-06T19:52:57.601Z	6a.0",
+			wantErr:   false,
+			notStrict: true,
 		},
 	}
 	for _, tt := range tests {
@@ -665,7 +675,7 @@ func TestTsdata_ValidateLine(t *testing.T) {
 				Units:           tt.fields.Units,
 				Headers:         tt.fields.Headers,
 			}
-			data, err := d.ValidateLine(tt.args.line)
+			data, err := d.ValidateLine(tt.line, !tt.notStrict)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("Tsdata.ValidateLine() err %v, expected a non-nil error", err)
@@ -704,12 +714,12 @@ func TestTsdata_ValidateLine_order(t *testing.T) {
 		line1 := "2017-05-06T19:52:57.601Z	6.0"
 		line2 := "2017-05-06T00:00:00.000Z	6.0"
 
-		_, _ = d.ValidateLine(line0)
-		_, err := d.ValidateLine(line1)
+		_, _ = d.ValidateLine(line0, true)
+		_, err := d.ValidateLine(line1, true)
 		if err != nil {
 			t.Errorf("Tsdata.ValidateLine() expected nil error for in-order lines, saw %v", err)
 		}
-		_, err = d.ValidateLine(line2)
+		_, err = d.ValidateLine(line2, true)
 		if err != nil {
 			t.Errorf("Tsdata.ValidateLine() expected nil error for out-of-order lines")
 		}
@@ -717,9 +727,6 @@ func TestTsdata_ValidateLine_order(t *testing.T) {
 }
 
 func TestTsdata_Header(t *testing.T) {
-	type args struct {
-		header string
-	}
 	tests := []struct {
 		name   string
 		fields tsdataFields
