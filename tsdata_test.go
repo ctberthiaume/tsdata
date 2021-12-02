@@ -90,6 +90,27 @@ time	col1`,
 			wantErr: false,
 		},
 		{
+			name: "correct header with leading/trailing whitespace",
+			fields: tsdataFields{
+				checkers:        []func(string) bool{checkTime, checkFloat},
+				FileType:        "fileType",
+				Project:         "project",
+				FileDescription: "file description",
+				Comments:        []string{},
+				Types:           []string{"time", "float"},
+				Units:           []string{"NA", "NA"},
+				Headers:         []string{"time", "col1"},
+			},
+			header: `fileType  
+project   
+file description   
+
+time  	  float  
+NA	NA
+time  	  col1  `,
+			wantErr: false,
+		},
+		{
 			name: "no data columns",
 			header: `project
 file description
@@ -519,6 +540,38 @@ func TestTsdata_ValidateLine(t *testing.T) {
 			dataFields: []string{"2017-05-06T19:52:57.601Z", "NA"},
 			fields:     intFields,
 			args: args{"2017-05-06T19:52:57.601Z	NA"},
+			wantErr: false,
+		},
+		{
+			name:       "leading whitespace in first time column",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
+			fields:     floatFields,
+			args: args{"  2017-05-06T19:52:57.601Z	6.0"},
+			wantErr: false,
+		},
+		{
+			name:       "trailing whitespace in first time column",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
+			fields:     floatFields,
+			args: args{"2017-05-06T19:52:57.601Z    	6.0"},
+			wantErr: false,
+		},
+		{
+			name:       "leading whitespace in data column",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
+			fields:     floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	  6.0"},
+			wantErr: false,
+		},
+		{
+			name:       "trailing whitespace in data column",
+			time:       tline,
+			dataFields: []string{"2017-05-06T19:52:57.601Z", "6.0"},
+			fields:     floatFields,
+			args: args{"2017-05-06T19:52:57.601Z	6.0  \r"},
 			wantErr: false,
 		},
 		{

@@ -54,6 +54,7 @@ func (t *Tsdata) ValidateLine(line string) (Data, error) {
 	}
 	// Validate first time column separately here to avoid parsing timestamp
 	// twice and to make sure not NA
+	fields[0] = strings.TrimSpace(fields[0]) // remove leading/trailing whitespace
 	tline, err := time.Parse(time.RFC3339, fields[0])
 	if err != nil {
 		return Data{}, fmt.Errorf("first time column, bad value '%v'", fields[0])
@@ -63,6 +64,8 @@ func (t *Tsdata) ValidateLine(line string) (Data, error) {
 	//	return Data{}, fmt.Errorf("timestamp less than previous line, %v < %v", tline, t.lastTime)
 	//}
 	for i := 1; i < len(fields); i++ { // skip first time column
+		// Remove leading/trailing whitespace from each data field
+		fields[i] = strings.TrimSpace(fields[i])
 		if !t.checkers[i](fields[i]) {
 			return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
 		}
@@ -79,20 +82,41 @@ func (t *Tsdata) ParseHeader(header string) error {
 	if len(headerLines) != HeaderSize {
 		return fmt.Errorf("expected %v lines in header, found %v", HeaderSize, len(headerLines))
 	}
+	// Remove trailing whitespace from each line
+	for i := 0; i < len(headerLines); i++ {
+		headerLines[i] = strings.TrimRight(headerLines[i], " \t\r")
+	}
+
 	t.FileType = strings.Split(headerLines[0], Delim)[0]
 	t.Project = strings.Split(headerLines[1], Delim)[0]
 	t.FileDescription = strings.Split(headerLines[2], Delim)[0]
 	if headerLines[3] != "" {
 		t.Comments = strings.Split(headerLines[3], Delim)
+		// Remove leading/trailing whitespace from each field
+		for i := 0; i < len(t.Comments); i++ {
+			t.Comments[i] = strings.TrimSpace(t.Comments[i])
+		}
 	}
 	if headerLines[4] != "" {
 		t.Types = strings.Split(headerLines[4], Delim)
+		// Remove leading/trailing whitespace from each field
+		for i := 0; i < len(t.Types); i++ {
+			t.Types[i] = strings.TrimSpace(t.Types[i])
+		}
 	}
 	if headerLines[5] != "" {
 		t.Units = strings.Split(headerLines[5], Delim)
+		// Remove leading/trailing whitespace from each field
+		for i := 0; i < len(t.Units); i++ {
+			t.Units[i] = strings.TrimSpace(t.Units[i])
+		}
 	}
 	if headerLines[6] != "" {
 		t.Headers = strings.Split(headerLines[6], Delim)
+		// Remove leading/trailing whitespace from each field
+		for i := 0; i < len(t.Headers); i++ {
+			t.Headers[i] = strings.TrimSpace(t.Headers[i])
+		}
 	}
 
 	t.checkers = make([]func(string) bool, len(t.Types))
