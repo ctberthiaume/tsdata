@@ -53,13 +53,14 @@ func (t *Tsdata) ValidateLine(line string, strict bool) (Data, error) {
 		return Data{}, fmt.Errorf("found %v columns, expected %v", len(fields), len(t.Headers))
 	}
 	fields = fields[:len(t.Headers)] // remove any extra fields
-	// Validate first time column separately here to avoid parsing timestamp
-	// twice and to make sure not NA
+	// Validate first time column separately here to make sure not NA
 	fields[0] = strings.TrimSpace(fields[0]) // remove leading/trailing whitespace
-	tline, err := time.Parse(time.RFC3339, fields[0])
+	tline, err := parseTime(fields[0])
+	fields[0] = tline.Format(time.RFC3339Nano) // standardize time string
 	if err != nil {
 		return Data{}, fmt.Errorf("first time column, bad value '%v'", fields[0])
 	}
+
 	// Turn off time order check for now, it's sometimes too stringent.
 	//if tline.Sub(t.lastTime) < 0 {
 	//	return Data{}, fmt.Errorf("timestamp less than previous line, %v < %v", tline, t.lastTime)
@@ -67,11 +68,25 @@ func (t *Tsdata) ValidateLine(line string, strict bool) (Data, error) {
 	for i := 1; i < len(fields); i++ { // skip first time column
 		// Remove leading/trailing whitespace from each data field
 		fields[i] = strings.TrimSpace(fields[i])
-		if !t.checkers[i](fields[i]) {
-			if strict {
-				return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
+		if t.Types[i] == "time" {
+			// Validate time fields as a special case to avoid parsing twice and to
+			// convert to a consistent RFC3339 string with 'T'
+			timeField, err := parseTime(fields[i])
+			if err != nil {
+				if fields[i] != NA && strict {
+					return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
+				}
+				fields[i] = NA
+			} else {
+				fields[i] = timeField.Format(time.RFC3339Nano)
 			}
-			fields[i] = NA
+		} else {
+			if !t.checkers[i](fields[i]) {
+				if strict {
+					return Data{}, fmt.Errorf("column %v, bad value '%v'", i+1, fields[i])
+				}
+				fields[i] = NA
+			}
 		}
 	}
 	t.lastTime = tline
@@ -225,11 +240,9 @@ func (t *Tsdata) Header() string {
 	return text
 }
 
+// checkTime always assumes s is a valid RFC3339 timestamp. Must check
+// separately.
 func checkTime(s string) bool {
-	_, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return s == NA
-	}
 	return true
 }
 
@@ -276,4 +289,13 @@ func nas(size int) string {
 		s[i] = NA
 	}
 	return strings.Join(s, Delim)
+}
+
+func parseTime(s string) (t time.Time, err error) {
+	t, err = time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		// Try with a space instead of a T
+		t, err = time.Parse(strings.Replace(time.RFC3339, "T", " ", 1), s)
+	}
+	return
 }
